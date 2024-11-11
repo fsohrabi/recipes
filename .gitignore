@@ -398,3 +398,4 @@ FodyWeavers.xsd
 *.sln.iml
 node_modules/
 .venv/
+recipes.json

@@ -12,6 +12,8 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import uvicorn
+from typing import Optional
+from datetime import datetime
 
 app = FastAPI()
 
@@ -61,10 +63,16 @@ class Recipe(BaseModel):
         id (int): Recipe identifier.
         name (str): Name of the recipe.
         ingredients (list[str]): List of ingredients for the recipe.
+        steps (str): Steps of the recipe.add()
+        image (str): link of image.
+        createdAt (datetime): when reciepe is added.
     """
     id: int = None
     name: str
     ingredients: list[str]
+    steps: str
+    image: Optional[str] = None
+    createdAt:  datetime = datetime.now()
 
 
 @app.get("/recipes")
@@ -84,11 +92,16 @@ def create_recipe(recipe: Recipe):
         dict: The created recipe.
     """
     recipes = load_recipes()
-    recipe_id = max((recipe["id"] for recipe in recipes), default=0) + 1
+
+    recipe_id = max((r["id"] for r in recipes), default=0) + 1
     recipe.id = recipe_id
-    recipes.append(recipe.model_dump())
+    recipe_data = recipe.dict()
+    recipe_data["createdAt"] = recipe_data["createdAt"].isoformat()
+    recipes.append(recipe_data)
+
+    # Save the updated list of recipes
     save_recipes(recipes)
-    return recipe
+    return recipe_data
 
 
 @app.get("/recipes/{recipe_id}")
@@ -105,7 +118,8 @@ def read_recipe(recipe_id: int):
         dict: The requested recipe.
     """
     recipes = load_recipes()
-    recipe = next((recipe for recipe in recipes if recipe["id"] == recipe_id), None)
+    recipe = next(
+        (recipe for recipe in recipes if recipe["id"] == recipe_id), None)
     if recipe is None:
         raise HTTPException(status_code=404, detail="Recipe not found")
     return recipe
@@ -126,15 +140,21 @@ def update_recipe(recipe_id: int, updated_recipe: Recipe):
         dict: The updated recipe.
     """
     recipes = load_recipes()
-    recipe_index = next((index for index, r in enumerate(recipes) if r["id"] == recipe_id), None)
+    recipe_index = next((index for index, r in enumerate(
+        recipes) if r["id"] == recipe_id), None)
 
     if recipe_index is None:
         raise HTTPException(status_code=404, detail="Recipe not found")
 
     updated_recipe.id = recipe_id
-    recipes[recipe_index] = updated_recipe.model_dump()
+
+    # Convert updated recipe to a dictionary and ensure createdAt is in string format
+    updated_recipe_data = updated_recipe.dict()
+    updated_recipe_data["createdAt"] = updated_recipe_data["createdAt"].isoformat()
+
+    recipes[recipe_index] = updated_recipe_data
     save_recipes(recipes)
-    return updated_recipe
+    return updated_recipe_data
 
 
 @app.delete("/recipes/{recipe_id}")
@@ -151,7 +171,8 @@ def delete_recipe(recipe_id: int):
         dict: A status message indicating successful deletion.
     """
     recipes = load_recipes()
-    recipe_index = next((index for index, r in enumerate(recipes) if r["id"] == recipe_id), None)
+    recipe_index = next((index for index, r in enumerate(
+        recipes) if r["id"] == recipe_id), None)
 
     if recipe_index is None:
         raise HTTPException(status_code=404, detail="Recipe not found")
